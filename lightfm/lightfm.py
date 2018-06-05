@@ -1,8 +1,9 @@
 # coding=utf-8
 from __future__ import print_function
 
-import numpy as np
+import time
 
+import numpy as np
 import scipy.sparse as sp
 
 from ._lightfm_fast import (CSRMatrix, FastLightFM,
@@ -206,6 +207,7 @@ class LightFM(object):
             self.random_state = np.random.RandomState(random_state)
 
         self._reset_state()
+        self.fit_callback = None
 
     def _reset_state(self):
 
@@ -305,18 +307,18 @@ class LightFM(object):
                 raise ValueError('The user feature matrix specifies more '
                                  'features than there are estimated '
                                  'feature embeddings: {} vs {}.'.format(
-                                     self.user_embeddings.shape[0],
-                                     user_features.shape[1]
-                                 ))
+                    self.user_embeddings.shape[0],
+                    user_features.shape[1]
+                ))
 
         if self.item_embeddings is not None:
             if not self.item_embeddings.shape[0] >= item_features.shape[1]:
                 raise ValueError('The item feature matrix specifies more '
                                  'features than there are estimated '
                                  'feature embeddings: {} vs {}.'.format(
-                                     self.item_embeddings.shape[0],
-                                     item_features.shape[1]
-                                 ))
+                    self.item_embeddings.shape[0],
+                    item_features.shape[1]
+                ))
 
         user_features = self._to_cython_dtype(user_features)
         item_features = self._to_cython_dtype(item_features)
@@ -356,8 +358,8 @@ class LightFM(object):
 
             if not (np.array_equal(interactions.row,
                                    sample_weight.row) and
-                    np.array_equal(interactions.col,
-                                   sample_weight.col)):
+                        np.array_equal(interactions.col,
+                                       sample_weight.col)):
                 raise ValueError('Sample weight and interaction matrix '
                                  'entries must be in the same order')
 
@@ -568,14 +570,18 @@ class LightFM(object):
             if verbose:
                 print('Epoch %s' % epoch)
 
+            start_time = time.time()
             self._run_epoch(item_features,
                             user_features,
                             interactions,
                             sample_weight_data,
                             num_threads,
                             self.loss)
+            end_time = time.time()
 
             self._check_finite()
+            if self.fit_callback:
+                self.fit_callback(epoch, end_time - start_time)
 
         return self
 
